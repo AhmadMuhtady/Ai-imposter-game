@@ -1,22 +1,42 @@
+from typing import Type
 import gradio as gr
 
 
 def user_input(category,secret_word):
         try:
+
+            if not isinstance(category,str):
+                raise TypeError(f'Category must be a string! recieved: {type(category).__name__}')
             
-            if not category or not category.isalpha():
-                raise ValueError(f'Invalid Category must be word must contain letters only. recieved: {category}.')
+            
+            if not isinstance(secret_word,str):
+                raise TypeError(f'Secret word must be a string! recieved: {type(secret_word).__name__}')
+            
+            
+            cleaned_category = category.strip()
+            cleaned_sercret_word = secret_word.strip()
+            
 
-            if not secret_word or not secret_word.isalpha():
-                raise ValueError(f'Invalid Secret word must be word must contain letters only. recieved: {secret_word}.')
-                
+            if not cleaned_category:
+                raise ValueError(f'Invalid Category must be valid words. recieved: {category}.')
 
-        except ValueError as e:
-            gr.Error(f'Error: {e}') 
+            if not cleaned_sercret_word:
+                raise ValueError(f'Invalid Secret word must be valid words. recieved: {secret_word}.')
+            
+
+            if len(cleaned_category) > 30:
+                raise ValueError('Categerory input must be shorter!')
+
+            if len(cleaned_sercret_word) > 30:
+                raise ValueError('Secret word input must be shorter!')
+
+        except (ValueError,TypeError) as e:
+            raise gr.Error(f'Error: {e}') 
     
         else: 
-            return (category,secret_word)
+            return (cleaned_category,cleaned_sercret_word)
 
 
 
-user_input()
+uInp = user_input("  Animals  ", "  Polar Bear  ")
+print(uInp)
