@@ -29,3 +29,18 @@ def add_clue(clues,player_name,clue):
     
     clues.append(cleaned)
 
+
+
+def prepare_player_context(player,category,clues):
+    player_name = player['name']
+    player_word = ['secret_word']
+
+
+    output  = {
+    'name': player_name,
+    'secret_word': player_word,
+    'category': category,
+    'previous_clues': clues
+    }
+
+    return output
