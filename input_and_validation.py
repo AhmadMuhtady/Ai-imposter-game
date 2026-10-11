@@ -35,8 +35,3 @@ def user_input(category,secret_word):
     
         else: 
             return (cleaned_category,cleaned_sercret_word)
-
-
-
-uInp = user_input("  Animals  ", "  Polar Bear  ")
-print(uInp)
