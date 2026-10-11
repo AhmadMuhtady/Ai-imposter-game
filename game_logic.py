@@ -7,19 +7,25 @@ def add_clue(clues,player_name,clue):
     
     if not isinstance(clue,str):
         raise TypeError(f'Clue must be a string! recieved: {type(clue).__name__}')
+
+    cleaned_name = player_name.strip()
+    cleaned_clue = clue.strip()
     
-    if not player_name.strip():
+    if not cleaned_name:
         raise ValueError(f'Player Name must be valid! recieved: {player_name}')
     
-    if not clue.strip():
+    if not cleaned_clue:
         raise ValueError(f'Clue must be valid! recieved: {clue}')
+    
+    if len(cleaned_clue.split()) > 1:
+        raise ValueError('Clue Must be 1 word only')
     
     prev_clues = [c['clue'].casefold() for c in clues]
     
-    if clue.strip().casefold() in prev_clues:
+    if cleaned_clue.casefold() in prev_clues:
         raise ValueError('same Clue already been given by another player!')
     
-    cleaned = {'name': player_name.strip(), 'clue': clue.strip()}
+    cleaned = {'name': cleaned_name, 'clue': cleaned_clue}
     
     clues.append(cleaned)
 
