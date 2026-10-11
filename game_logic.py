@@ -14,6 +14,11 @@ def add_clue(clues,player_name,clue):
     if not clue.strip():
         raise ValueError(f'Clue must be valid! recieved: {clue}')
     
+    prev_clues = [c['clue'].casefold() for c in clues]
+    
+    if clue.strip().casefold() in prev_clues:
+        raise ValueError('same Clue already been given by another player!')
+    
     cleaned = {'name': player_name.strip(), 'clue': clue.strip()}
     
     clues.append(cleaned)
