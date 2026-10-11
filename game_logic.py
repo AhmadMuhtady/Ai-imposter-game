@@ -31,16 +31,16 @@ def add_clue(clues,player_name,clue):
 
 
 
-def prepare_player_context(player,category,clues):
+def prepare_player_context(player,clues):
     player_name = player['name']
     player_word = player['secret_word']
-
+    player_category = player['category']
 
     output  = {
     'name': player_name,
     'secret_word': player_word,
-    'category': category,
-    'previous_clues': clues
+    'category': player_category,
+    'previous_clues': clues.copy()
     }
 
     return output
