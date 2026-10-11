@@ -33,7 +33,7 @@ def add_clue(clues,player_name,clue):
 
 def prepare_player_context(player,category,clues):
     player_name = player['name']
-    player_word = ['secret_word']
+    player_word = player['secret_word']
 
 
     output  = {
