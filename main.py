@@ -4,15 +4,26 @@ from game_logic import add_clue,prepare_player_context
 from ai_models import generate_clue
 
 clues = []
+
 category,secret_word = user_input('food','burger')
 players,imposter = setup_players(secret_word,category)
 
 
 
 for player in players:
+    rejected_clues = []
+    name = player['name']
     output = prepare_player_context(player,clues)
-    clue = generate_clue(output)
-    add_clue(clues,player['name'],clue)
+    for _ in range(3):
+        try:
+            clue = generate_clue(output)
+            add_clue(clues,name,clue,secret_word)
+            break
+        except ValueError as e:
+            rejected_clues.append({'rejected_clue': clue,'Error': str(e)})
+            print(f"Error: {e}")
+    else:
+        raise RuntimeError(f'{name} failed to generate a valid clue after 3 attempts')
 
 
 print(clues)
