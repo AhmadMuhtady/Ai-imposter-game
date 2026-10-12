@@ -14,17 +14,20 @@ for player in players:
     rejected_clues = []
     name = player['name']
     
-    for _ in range(3):
+    for attempt in range(3):
+        output = prepare_player_context(player,clues,rejected_clues)
         clue = generate_clue(output)
         try:
-            output = prepare_player_context(player,clues,rejected_clues)
+
             add_clue(clues,name,clue,secret_word)
             break
         except ValueError as e:
             rejected_clues.append({'rejected_clue': clue,'Error': str(e)})
             print(f"Error: {e}")
+        print(rejected_clues)
     else:
         raise RuntimeError(f'{name} failed to generate a valid clue after 3 attempts')
+    
 
 
 print(clues)
