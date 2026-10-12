@@ -41,7 +41,7 @@ def add_clue(clues,player_name,clue,secret_word):
 
 
 
-def prepare_player_context(player,clues):
+def prepare_player_context(player,clues,rejected_clues):
     player_name = player['name']
     player_word = player['secret_word']
     player_category = player['category']
@@ -50,8 +50,12 @@ def prepare_player_context(player,clues):
     'name': player_name,
     'secret_word': player_word,
     'category': player_category,
-    'previous_clues': clues.copy()
+    'previous_clues': clues.copy(),
+    'retry_feedback': ''
     }
+
+    if rejected_clues:
+        output['retry_feedback'] = 'Your previous clue was rejected. Choose a different, valid one-word clue. Do not repeat your previous response.'
 
     return output
 
