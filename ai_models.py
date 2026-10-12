@@ -59,7 +59,34 @@ You MUST return a valid JSON object containing only a single key "clue" with a 1
 """
 }
 
-# Strict JSON Schema for OpenAI and Gemini
+# Voting System Prompt (Imposter instruction removed as requested)
+voting_system_prompt = {
+    "role": "system",
+    "content": """You are one of 4 AI players in the voting phase of a social deduction word game called "Imposter".
+
+## VOTING RULES & OBJECTIVES
+- There are exactly 4 players (ChatGPT, Gemini, Claude, Groq), and one of them is the **Imposter**.
+- **If you are an Innocent Player** (you received a real secret word): Analyze all players' clues carefully. Identify who gave a suspicious or disconnected clue and vote for them. Provide a one-sentence reason explaining your suspicion.
+- **CRITICAL RESTRICTIONS:**
+  - You MUST NOT vote for yourself.
+  - You MUST choose exactly one name from the provided list of eligible candidates.
+  - Your explanation must be **exactly one sentence** long.
+  - Never reveal your own assigned secret word or role in your explanation.
+
+### OUTPUT FORMAT
+You MUST return a valid JSON object containing exactly two keys:
+1. "vote": A string containing the exact name of the chosen candidate.
+2. "reason": A string containing a one-sentence explanation for your vote.
+
+Example:
+{
+    "vote": "Gemini",
+    "reason": "Gemini's clue was too vague and disconnected from the core theme."
+}
+"""
+}
+
+# Strict JSON Schema for OpenAI and Gemini clue generation
 strict_response_format = {
     "type": "json_schema",
     "json_schema": {
@@ -79,6 +106,30 @@ strict_response_format = {
     }
 }
 
+# Strict JSON Schema for OpenAI and Gemini voting
+strict_voting_response_format = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "imposter_vote",
+        "strict": True,  
+        "schema": {
+            "type": "object",
+            "properties": {
+                "vote": {
+                    "type": "string",
+                    "description": "The exact name of the player you are voting for."
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "A one-sentence explanation supporting your vote."
+                }
+            },
+            "required": ["vote", "reason"],
+            "additionalProperties": False
+        }
+    }
+}
+
 # Standard JSON object format for Groq to prevent validation crashes
 groq_response_format = {
     "type": "json_object"
@@ -91,7 +142,6 @@ def get_user_prompt(category: str, secret_word: str, previous_clues: list[dict],
     else:
         clues_str = "None (You are the first to play)"
     
-    # Conditionally add the retry feedback section if present
     feedback_section = f"\n{retry_feedback}\n" if retry_feedback else ""
 
     content = f"""Here is the current game state:
@@ -110,6 +160,48 @@ Provide your 1-word clue now as a JSON object with a single "clue" key."""
         "content": content
     }
 
+def get_voting_prompt(voting_context):
+    name = voting_context['name']
+    secret_word = voting_context['secret_word']
+    category = voting_context['category']
+    clues = voting_context['clues']
+    candidates = voting_context['candidates']
+    
+    if clues:
+        clues_lines = [f"- {item['name']}: {item['clue']}" for item in clues]
+        clues_str = "\n".join(clues_lines)
+    else:
+        clues_str = "None"
+        
+    if candidates:
+        candidates_str = ", ".join(candidates)
+    else:
+        candidates_str = "None"
+        
+    # Secret sneaky note kept for the Imposter :p
+    imposter_hint = ""
+    if secret_word == "Imposter":
+        imposter_hint = "\n[HIDDEN NOTE: Psst... You are the Imposter! Stay smart and sneaky. Pick someone suspicious and frame them with a clever reason so they take the fall!]\n"
+
+    content = f"""Here is the voting state:
+- Your Name: 
+{name}
+- Your Assigned Word / Role: 
+{secret_word}
+- Category: 
+{category}
+{imposter_hint}
+All Players' Clues:
+{clues_str}
+
+Eligible Voting Candidates: {candidates_str}
+
+Instruction: Follow your assigned role's voting objective. Select exactly one eligible candidate and provide a one-sentence explanation. Return a JSON object containing exactly two keys: "vote" and "reason"."""
+
+    return {
+        "role": "user",
+        "content": content
+    }
 
 # Initialize Clients
 groq_config = MODEL_CONFIG['Groq']
@@ -125,18 +217,18 @@ gemini_ai = OpenAI(api_key=gemini_ai_API_KEY, base_url=gemini_ai_config["base_ur
 claude_config = MODEL_CONFIG['Claude']
 claude_ai = Anthropic(api_key=anthropic_ai_API_KEY)
 
-# Shared helper for OpenAI-compatible providers
+# Shared helper for OpenAI-compatible providers (Clues)
 def generate_compatible_clue(player_context, client, model_config, custom_response_format):
     category = player_context['category']
     secret_word = player_context['secret_word']
     clues = player_context['previous_clues']
-    retry_feedback = player_context.get('retry_feedback','')
+    retry_feedback = player_context.get('retry_feedback', '')
 
     res = client.chat.completions.create(
         model=model_config['model'],
         messages=[
             system_game_prompt,
-            get_user_prompt(category, secret_word, clues,retry_feedback)
+            get_user_prompt(category, secret_word, clues, retry_feedback)
         ],
         response_format=custom_response_format
     )
@@ -153,7 +245,7 @@ def generate_groq_clue(player_context):
 def generate_gemini_clue(player_context):
     return generate_compatible_clue(player_context, gemini_ai, gemini_ai_config, strict_response_format)
 
-# Request-layer structured output enforcement for Claude via Tool Use
+# Request-layer structured output enforcement for Claude via Tool Use (Clues)
 def generate_claude_clue(player_context):
     if not isinstance(player_context, dict):
         raise TypeError(f'Player context must be a dict! received: {type(player_context).__name__}')
@@ -161,9 +253,9 @@ def generate_claude_clue(player_context):
     category = player_context['category']
     secret_word = player_context['secret_word']
     clues = player_context['previous_clues']
-    retry_feedback = player_context.get('retry_feedback','')
+    retry_feedback = player_context.get('retry_feedback', '')
 
-    user_prompt = get_user_prompt(category, secret_word, clues,retry_feedback)
+    user_prompt = get_user_prompt(category, secret_word, clues, retry_feedback)
 
     tools = [{
         "name": "submit_clue",
@@ -211,3 +303,25 @@ def generate_clue(player_context):
         return generator(player_context)
     else:
         raise NotImplementedError(f'Unknown Model! {name}')
+
+
+def generate_compatible_vote(voting_context, client, model_config, custom_response_format):
+    if not isinstance(voting_context, dict):
+        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')
+
+    res = client.chat.completions.create(
+        model=model_config['model'],
+        messages=[
+            voting_system_prompt,
+            get_voting_prompt(voting_context)
+        ],
+        response_format=custom_response_format
+    )
+
+    results = json.loads(res.choices[0].message.content)
+    
+
+    return {
+        "vote": results["vote"],
+        "reason": results["reason"]
+    }
