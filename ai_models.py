@@ -84,19 +84,22 @@ groq_response_format = {
     "type": "json_object"
 }
 
-def get_user_prompt(category: str, secret_word: str, previous_clues: list[dict]) -> dict:
+def get_user_prompt(category: str, secret_word: str, previous_clues: list[dict], retry_feedback: str = "") -> dict:
     if previous_clues:
         clues_lines = [f"- {item['name']}: {item['clue']}" for item in previous_clues]
         clues_str = "\n".join(clues_lines)
     else:
         clues_str = "None (You are the first to play)"
     
+    # Conditionally add the retry feedback section if present
+    feedback_section = f"\n{retry_feedback}\n" if retry_feedback else ""
+
     content = f"""Here is the current game state:
 - Category: 
 {category}
 - Your Secret Word / Role: 
 {secret_word}
-
+{feedback_section}
 ATTENTION - Previous Players' Clues (You MUST review these carefully before deciding your word):
 {clues_str}
 
@@ -106,6 +109,7 @@ Provide your 1-word clue now as a JSON object with a single "clue" key."""
         "role": "user",
         "content": content
     }
+
 
 # Initialize Clients
 groq_config = MODEL_CONFIG['Groq']
@@ -126,12 +130,13 @@ def generate_compatible_clue(player_context, client, model_config, custom_respon
     category = player_context['category']
     secret_word = player_context['secret_word']
     clues = player_context['previous_clues']
+    retry_feedback = player_context.get('retry_feedback','')
 
     res = client.chat.completions.create(
         model=model_config['model'],
         messages=[
             system_game_prompt,
-            get_user_prompt(category, secret_word, clues)
+            get_user_prompt(category, secret_word, clues,retry_feedback)
         ],
         response_format=custom_response_format
     )
@@ -156,8 +161,9 @@ def generate_claude_clue(player_context):
     category = player_context['category']
     secret_word = player_context['secret_word']
     clues = player_context['previous_clues']
+    retry_feedback = player_context.get('retry_feedback','')
 
-    user_prompt = get_user_prompt(category, secret_word, clues)
+    user_prompt = get_user_prompt(category, secret_word, clues,retry_feedback)
 
     tools = [{
         "name": "submit_clue",
