@@ -3,6 +3,7 @@ import json
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from anthropic import Anthropic  # Native Anthropic SDK
 
 load_dotenv(override=True)
 open_ai_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -16,11 +17,10 @@ MODEL_CONFIG = {
         "base_url": "https://api.openai.com/v1"
     },
     "Claude": {
-        "model": "claude-haiku-5-5",
-        "base_url": "https://api.anthropic.com"
+        "model": "claude-haiku-5-5"
     },
     "Gemini": {
-        "model": "gemini-3.8-flash",
+        "model": "gemini-2.5-flash",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"
     },
     "Groq": {
@@ -52,16 +52,19 @@ Your clue MUST:
 - **NEVER** repeat or duplicate an existing clue from previous players.
 
 ### OUTPUT FORMAT
-You MUST return valid JSON matching the provided schema, containing only a single key "clue" with a 1-word string value.
+You MUST return a valid JSON object containing only a single key "clue" with a 1-word string value. Example:
+{
+    "clue": "your_one_word_here"
+}
 """
 }
 
-
-response_format = {
+# Strict JSON Schema for OpenAI and Gemini
+strict_response_format = {
     "type": "json_schema",
     "json_schema": {
         "name": "imposter_clue",
-        "strict": True,
+        "strict": True,  
         "schema": {
             "type": "object",
             "properties": {
@@ -74,6 +77,11 @@ response_format = {
             "additionalProperties": False
         }
     }
+}
+
+# Standard JSON object format for Groq to prevent validation crashes
+groq_response_format = {
+    "type": "json_object"
 }
 
 def get_user_prompt(category: str, secret_word: str, previous_clues: list[dict]) -> dict:
@@ -92,17 +100,56 @@ def get_user_prompt(category: str, secret_word: str, previous_clues: list[dict])
 ATTENTION - Previous Players' Clues (You MUST review these carefully before deciding your word):
 {clues_str}
 
-Provide your 1-word clue now, ensuring it aligns with the context above without repeating any previous word."""
+Provide your 1-word clue now as a JSON object with a single "clue" key."""
 
     return {
         "role": "user",
         "content": content
     }
 
+# Initialize Clients
 groq_config = MODEL_CONFIG['Groq']
 groq_ai = OpenAI(api_key=groq_ai_API_KEY, base_url=groq_config["base_url"])
 
+open_ai_config = MODEL_CONFIG['ChatGPT']
+open_ai = OpenAI(api_key=open_ai_API_KEY)
+
+gemini_ai_config = MODEL_CONFIG['Gemini']
+gemini_ai = OpenAI(api_key=gemini_ai_API_KEY, base_url=gemini_ai_config["base_url"])
+
+# Native Anthropic Client for Claude
+claude_config = MODEL_CONFIG['Claude']
+claude_ai = Anthropic(api_key=anthropic_ai_API_KEY)
+
+# Shared helper for OpenAI-compatible providers
+def generate_compatible_clue(player_context, client, model_config, custom_response_format):
+    category = player_context['category']
+    secret_word = player_context['secret_word']
+    clues = player_context['previous_clues']
+
+    res = client.chat.completions.create(
+        model=model_config['model'],
+        messages=[
+            system_game_prompt,
+            get_user_prompt(category, secret_word, clues)
+        ],
+        response_format=custom_response_format
+    )
+
+    results = json.loads(res.choices[0].message.content)
+    return results['clue']
+
+def generate_openai_clue(player_context):
+    return generate_compatible_clue(player_context, open_ai, open_ai_config, strict_response_format)
+
 def generate_groq_clue(player_context):
+    return generate_compatible_clue(player_context, groq_ai, groq_config, groq_response_format)
+
+def generate_gemini_clue(player_context):
+    return generate_compatible_clue(player_context, gemini_ai, gemini_ai_config, strict_response_format)
+
+# Request-layer structured output enforcement for Claude via Tool Use
+def generate_claude_clue(player_context):
     if not isinstance(player_context, dict):
         raise TypeError(f'Player context must be a dict! received: {type(player_context).__name__}')
 
@@ -110,44 +157,51 @@ def generate_groq_clue(player_context):
     secret_word = player_context['secret_word']
     clues = player_context['previous_clues']
 
-    res = groq_ai.chat.completions.create(
-        model=groq_config["model"],
+    user_prompt = get_user_prompt(category, secret_word, clues)
+
+    tools = [{
+        "name": "submit_clue",
+        "description": "Submit the 1-word clue for the game.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "clue": {
+                    "type": "string",
+                    "description": "Exactly 1 word only clue for the game."
+                }
+            },
+            "required": ["clue"]
+        }
+    }]
+
+    response = claude_ai.messages.create(
+        model=claude_config['model'],
+        max_tokens=100,
+        system=system_game_prompt['content'],
         messages=[
-            system_game_prompt,
-            get_user_prompt(category, secret_word, clues)
+            {"role": user_prompt["role"], "content": user_prompt["content"]}
         ],
-        response_format=response_format
+        tools=tools,
+        tool_choice={"type": "tool", "name": "submit_clue"}
     )
 
-    results = json.loads(res.choices[0].message.content)
-    return results['clue']
+    for block in response.content:
+        if block.type == "tool_use" and block.name == "submit_clue":
+            return block.input['clue']
+
+    raise ValueError("Claude failed to return a valid structured tool response.")
 
 CLUE_GENERATORS = {
-        #"ChatGPT": generate_openai_clue,
-        #"Claude": generate_claude_clue,
-        #"Gemini": generate_gemini_clue,
-        "Groq": generate_groq_clue,
-    }
+    "ChatGPT": generate_openai_clue,
+    "Claude": generate_claude_clue,
+    "Gemini": generate_gemini_clue,
+    "Groq": generate_groq_clue,
+}
+
 def generate_clue(player_context):
     name = player_context['name']
-
     generator = CLUE_GENERATORS.get(name)
     if generator:
         return generator(player_context)
     else:
-        raise NotImplementedError('Unknown Model!')
-
-if __name__ == "__main__":
-    test_player_context = {
-        'name': 'Groq',
-        'secret_word': 'Imposter',
-        'category': 'food',
-        'previous_clues': [
-            {'name': 'ChatGPT', 'clue': 'Topping'},
-            {'name': 'Claude', 'clue': 'Cheese'}
-
-        ]
-    }
-
-    output = generate_groq_clue(test_player_context)
-    print("Generated Clue Output:", output)
+        raise NotImplementedError(f'Unknown Model! {name}')
