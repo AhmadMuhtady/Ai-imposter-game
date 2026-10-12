@@ -121,3 +121,33 @@ def generate_groq_clue(player_context):
 
     results = json.loads(res.choices[0].message.content)
     return results['clue']
+
+CLUE_GENERATORS = {
+        #"ChatGPT": generate_openai_clue,
+        #"Claude": generate_claude_clue,
+        #"Gemini": generate_gemini_clue,
+        "Groq": generate_groq_clue,
+    }
+def generate_clue(player_context):
+    name = player_context['name']
+
+    generator = CLUE_GENERATORS.get(name)
+    if generator:
+        return generator(player_context)
+    else:
+        raise NotImplementedError('Unknown Model!')
+
+if __name__ == "__main__":
+    test_player_context = {
+        'name': 'Groq',
+        'secret_word': 'Imposter',
+        'category': 'food',
+        'previous_clues': [
+            {'name': 'ChatGPT', 'clue': 'Topping'},
+            {'name': 'Claude', 'clue': 'Cheese'}
+
+        ]
+    }
+
+    output = generate_groq_clue(test_player_context)
+    print("Generated Clue Output:", output)
