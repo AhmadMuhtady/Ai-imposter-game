@@ -59,7 +59,20 @@ def prepare_player_context(player,clues,rejected_clues):
 
     return output
 
+def prepare_voting_context(player,clues):
+    player_name = player['name']
+    player_word = player['secret_word']
+    player_category = player['category']
 
+    output  = {
+    'name': player_name,
+    'secret_word': player_word,
+    'category': player_category,
+    'clues': clues.copy(),
+    'candidates': [p['name'] for p in clues if p['name'] != player_name]
+    }
+
+    return output
 
 
 
