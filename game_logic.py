@@ -75,4 +75,71 @@ def prepare_voting_context(player,clues):
     return output
 
 
+def add_vote(votes, voter_name, vote_result, candidates):
+    if not isinstance(votes, list):
+        raise TypeError(f'Votes must be a list! Received: {type(votes).__name__}')
+    
+    if not isinstance(voter_name, str):
+        raise TypeError(f'Voter name must be a string! Received: {type(voter_name).__name__}')
+    
+    if not isinstance(vote_result, dict):
+        raise TypeError(f'Vote result must be a dict! Received: {type(vote_result).__name__}')
+
+    if not isinstance(candidates, list):
+        raise TypeError(f'Candidates must be a list! Received: {type(candidates).__name__}')
+
+    cleaned_name = voter_name.strip()
+    if not cleaned_name:
+        raise ValueError(f'Voter name must be valid! Received: {voter_name}')
+
+    
+    for existing in votes:
+        if existing.get('name', '').casefold() == cleaned_name.casefold():
+            raise ValueError(f'Player {cleaned_name} has already voted!')
+
+    # Safe checking and stripping for vote and reason
+    raw_vote = vote_result.get('vote')
+    raw_reason = vote_result.get('reason')
+
+    if not isinstance(raw_vote, str):
+        raise ValueError(f'Vote must be a string! Received: {type(raw_vote).__name__}')
+    if not isinstance(raw_reason, str):
+        raise ValueError(f'Reason must be a string! Received: {type(raw_reason).__name__}')
+
+    cleaned_vote = raw_vote.strip()
+    cleaned_reason = raw_reason.strip()
+    
+    if not cleaned_vote:
+        raise ValueError('Vote cannot be empty!')
+    
+    if not cleaned_reason:
+        raise ValueError('Reason cannot be empty!')
+    
+
+    sentences = [s.strip() for s in cleaned_reason.split('.') if s.strip()]
+    if len(sentences) > 1:
+        raise ValueError('Reason must be 1 sentence only')
+    
+  
+    if cleaned_name.casefold() == cleaned_vote.casefold():
+        raise ValueError('You cannot vote for yourself!')
+    
+
+    matched_candidate = None
+    for candidate in candidates:
+        if candidate.strip().casefold() == cleaned_vote.casefold():
+            matched_candidate = candidate.strip()
+            break
+
+    if not matched_candidate:
+        raise ValueError(f'Invalid vote target "{cleaned_vote}". Must be one of the eligible candidates: {candidates}')
+
+
+    clean_vote = {
+        'name': cleaned_name, 
+        'vote': matched_candidate, 
+        'reason': cleaned_reason
+    }
+    
+    votes.append(clean_vote)
 
