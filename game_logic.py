@@ -44,3 +44,8 @@ def prepare_player_context(player,clues):
     }
 
     return output
+
+
+
+
+
