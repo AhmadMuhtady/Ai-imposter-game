@@ -13,10 +13,11 @@ players,imposter = setup_players(secret_word,category)
 for player in players:
     rejected_clues = []
     name = player['name']
-    output = prepare_player_context(player,clues)
+    
     for _ in range(3):
+        clue = generate_clue(output)
         try:
-            clue = generate_clue(output)
+            output = prepare_player_context(player,clues,rejected_clues)
             add_clue(clues,name,clue,secret_word)
             break
         except ValueError as e:
