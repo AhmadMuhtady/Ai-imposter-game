@@ -11,9 +11,8 @@ players,imposter = setup_players(secret_word,category)
 
 for player in players:
     output = prepare_player_context(player,clues)
-    if player['name'] == 'Groq':
-        clue = generate_clue(output)
-        add_clue(clues,player['name'],clue)
+    clue = generate_clue(output)
+    add_clue(clues,player['name'],clue)
 
 
 print(clues)
