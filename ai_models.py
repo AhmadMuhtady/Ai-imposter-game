@@ -59,7 +59,7 @@ You MUST return a valid JSON object containing only a single key "clue" with a 1
 """
 }
 
-# Voting System Prompt (Imposter instruction removed as requested)
+# Voting System Prompt
 voting_system_prompt = {
     "role": "system",
     "content": """You are one of 4 AI players in the voting phase of a social deduction word game called "Imposter".
@@ -178,7 +178,6 @@ def get_voting_prompt(voting_context):
     else:
         candidates_str = "None"
         
-    # Secret sneaky note kept for the Imposter :p
     imposter_hint = ""
     if secret_word == "Imposter":
         imposter_hint = "\n[HIDDEN NOTE: Psst... You are the Imposter! Stay smart and sneaky. Pick someone suspicious and frame them with a clever reason so they take the fall!]\n"
@@ -320,8 +319,77 @@ def generate_compatible_vote(voting_context, client, model_config, custom_respon
 
     results = json.loads(res.choices[0].message.content)
     
-
     return {
-        "vote": results["vote"],
-        "reason": results["reason"]
+        "vote": results.get("vote"),
+        "reason": results.get("reason")
     }
+
+def generate_openai_vote(voting_context):
+    return generate_compatible_vote(voting_context, open_ai, open_ai_config, strict_voting_response_format)
+
+def generate_gemini_vote(voting_context):
+    return generate_compatible_vote(voting_context, gemini_ai, gemini_ai_config, strict_voting_response_format)
+
+def generate_groq_vote(voting_context):
+    return generate_compatible_vote(voting_context, groq_ai, groq_config, groq_response_format)
+
+
+def generate_claude_vote(voting_context):
+    if not isinstance(voting_context, dict):
+        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')
+
+    user_prompt = get_voting_prompt(voting_context)
+
+    tools = [{
+        "name": "submit_vote",
+        "description": "Submit your vote and reasoning for the Imposter game.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "vote": {
+                    "type": "string",
+                    "description": "The exact name of the player you are voting for."
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "A one-sentence explanation supporting your vote."
+                }
+            },
+            "required": ["vote", "reason"]
+        }
+    }]
+
+    response = claude_ai.messages.create(
+        model=claude_config['model'],
+        max_tokens=150,
+        system=voting_system_prompt['content'],
+        messages=[
+            {"role": user_prompt["role"], "content": user_prompt["content"]}
+        ],
+        tools=tools,
+        tool_choice={"type": "tool", "name": "submit_vote"}
+    )
+
+    for block in response.content:
+        if block.type == "tool_use" and block.name == "submit_vote":
+            return {
+                "vote": block.input['vote'],
+                "reason": block.input['reason']
+            }
+
+    raise ValueError("Claude failed to return a valid structured tool voting response.")
+
+VOTING_GENERATORS = {
+    "ChatGPT": generate_openai_vote,
+    "Claude": generate_claude_vote,
+    "Gemini": generate_gemini_vote,
+    "Groq": generate_groq_vote,
+}
+
+def generate_vote(voting_context):
+    name = voting_context['name']
+    generator = VOTING_GENERATORS.get(name)
+    if generator:
+        return generator(voting_context)
+    else:
+        raise NotImplementedError(f'Unknown Model for voting! {name}')
