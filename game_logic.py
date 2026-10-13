@@ -143,3 +143,42 @@ def add_vote(votes, voter_name, vote_result, candidates):
     
     votes.append(clean_vote)
 
+
+def resolve_game(players,votes,imposter):
+    scores = {player['name']: 0 for player in players}
+    final_statment = None
+    is_tie = False
+    winner = None
+    for v in votes:
+        name = v['vote']
+        if name in scores:
+            scores[name] += 1
+
+
+    max_score = max(scores.values())
+
+
+    top_players = [name for name, count in scores.items() if count == max_score]
+
+
+    if len(top_players) > 1:
+        final_statment = 'It is a Tie! The Imposter survives and WINS!'
+        is_tie = True
+        winner = 'Its a Tie'
+    else:
+        suspect = top_players[0]
+        if suspect == imposter:
+            final_statment = 'Imposter LOST! Innocent players successfully identified them!'
+            winner = 'Innocents'
+        else:
+            final_statment = 'Imposter WON! Innocent players voted for an innocent person!'
+            winner = 'Imposter'
+    
+    return {
+    'scores': scores,
+    'max_score': max_score,
+    'suspects': top_players,
+    'winner': 'winner',
+    'is_tie': is_tie,
+    'final_statement': final_statment
+}
