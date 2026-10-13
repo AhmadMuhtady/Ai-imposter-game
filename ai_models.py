@@ -237,7 +237,10 @@ def generate_compatible_clue(player_context, client, model_config, custom_respon
     )
 
     try:
-        content = res.choices[0].message.content
+        if res.choices:
+            content = res.choices[0].message.content
+        else:
+            raise InvalidAIResponseError(f"API Error or Empty Response: {res.choices}")
         results = json.loads(content)
     except (json.JSONDecodeError, TypeError, AttributeError) as e:
         raise InvalidAIResponseError(f"Failed to parse JSON response from AI: {e}") from e
@@ -259,7 +262,7 @@ def generate_gemini_clue(player_context):
 
 def generate_claude_clue(player_context):
     if not isinstance(player_context, dict):
-        raise TypeError(f'Player context must be a dict! received: {type(player_context).__name__}')[cite: 1]
+        raise TypeError(f'Player context must be a dict! received: {type(player_context).__name__}')
 
     category = player_context['category']
     secret_word = player_context['secret_word']
@@ -321,7 +324,7 @@ def generate_clue(player_context):
 
 def generate_compatible_vote(voting_context, client, model_config, custom_response_format):
     if not isinstance(voting_context, dict):
-        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')[cite: 1]
+        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')
 
     res = client.chat.completions.create(
         model=model_config['model'],
@@ -333,7 +336,10 @@ def generate_compatible_vote(voting_context, client, model_config, custom_respon
     )
 
     try:
-        content = res.choices[0].message.content
+        if res.choices:
+            content = res.choices[0].message.content
+        else:
+            raise InvalidAIResponseError(f"API Error or Empty Response: {res.choices}")
         results = json.loads(content)
     except (json.JSONDecodeError, TypeError, AttributeError) as e:
         raise InvalidAIResponseError(f"Failed to parse JSON voting response from AI: {e}") from e
@@ -358,7 +364,7 @@ def generate_groq_vote(voting_context):
 
 def generate_claude_vote(voting_context):
     if not isinstance(voting_context, dict):
-        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')[cite: 1]
+        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')
 
     user_prompt = get_voting_prompt(voting_context)
 
