@@ -73,7 +73,7 @@ def prepare_player_context(player, clues, rejected_clues):
     return output
 
 
-def prepare_voting_context(player, clues):
+def prepare_voting_context(player, clues, retry_feedback=''):
     player_name = player['name']
     player_word = player['secret_word']
     player_category = player['category']
@@ -83,7 +83,8 @@ def prepare_voting_context(player, clues):
         'secret_word': player_word,
         'category': player_category,
         'clues': clues.copy(),
-        'candidates': [p['name'] for p in clues if p['name'] != player_name]
+        'candidates': [p['name'] for p in clues if p['name'] != player_name],
+        'retry_feedback': retry_feedback
     }
 
     return output
