@@ -1,3 +1,4 @@
+import json
 import openai
 import anthropic
 from input_and_validation import user_input
@@ -23,6 +24,9 @@ def run_clue_phase(players, secret_word):
                 raise RuntimeError(f"Authentication failed for {name}. Please verify your API keys.") from e
             except (openai.RateLimitError, anthropic.RateLimitError) as e:
                 raise RuntimeError(f"Rate limit reached for {name}. Please check your quota or try again later.") from e
+            except json.JSONDecodeError as e:
+                print(f"Malformed JSON Error for {name} on attempt {attempt + 1}: {e}")
+                continue
             
             try:
                 add_clue(clues, name, clue, secret_word)
