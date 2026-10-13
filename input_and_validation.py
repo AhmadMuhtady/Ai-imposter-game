@@ -1,3 +1,6 @@
+import re
+
+
 def user_input(category, secret_word):
     if not isinstance(category, str):
         raise TypeError(f'Category must be a string! received: {type(category).__name__}')
@@ -14,6 +17,12 @@ def user_input(category, secret_word):
 
     if not cleaned_secret_word:
         raise ValueError(f'Invalid Secret word must be valid words. received: {secret_word}.')
+
+    if not re.search(r'\w', cleaned_category):
+        raise ValueError('Category must contain valid letters or words.')
+
+    if not re.search(r'\w', cleaned_secret_word):
+        raise ValueError('Secret word must contain valid letters or words.')
     
     if len(cleaned_secret_word.split()) > 1:
         raise ValueError('Secret word must be 1 word!')
@@ -23,9 +32,6 @@ def user_input(category, secret_word):
 
     if len(cleaned_secret_word) > 30:
         raise ValueError('Secret word input must be shorter!')
-
-
-
 
     if cleaned_secret_word.casefold() in {'imposter', 'impostor'}:
         raise ValueError('Secret word cannot be "Imposter" as it is reserved for the role marker.')
