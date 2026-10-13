@@ -1,10 +1,9 @@
-import json
 import openai
 import anthropic
 from input_and_validation import user_input
 from players import setup_players
 from game_logic import add_clue, prepare_player_context, prepare_voting_context, add_vote, resolve_game
-from ai_models import generate_clue, generate_vote
+from ai_models import generate_clue, generate_vote, InvalidAIResponseError
 
 def run_clue_phase(players, secret_word):
     clues = []
@@ -24,8 +23,8 @@ def run_clue_phase(players, secret_word):
                 raise RuntimeError(f"Authentication failed for {name}. Please verify your API keys.") from e
             except (openai.RateLimitError, anthropic.RateLimitError) as e:
                 raise RuntimeError(f"Rate limit reached for {name}. Please check your quota or try again later.") from e
-            except json.JSONDecodeError as e:
-                print(f"Malformed JSON Error for {name} on attempt {attempt + 1}: {e}")
+            except InvalidAIResponseError as e:
+                print(f"Invalid AI Response Error for {name} on attempt {attempt + 1}: {e}")
                 continue
             
             try:
@@ -55,8 +54,8 @@ def run_voting_phase(players, clues):
                 raise RuntimeError(f"Authentication failed for {name}. Please verify your API keys.") from e
             except (openai.RateLimitError, anthropic.RateLimitError) as e:
                 raise RuntimeError(f"Rate limit reached for {name}. Please check your quota or try again later.") from e
-            except json.JSONDecodeError as e:
-                print(f"Malformed JSON Error for {name} on vote attempt {attempt + 1}: {e}")
+            except InvalidAIResponseError as e:
+                print(f"Invalid AI Response Error for {name} on vote attempt {attempt + 1}: {e}")
                 continue
 
             try:

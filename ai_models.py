@@ -3,13 +3,17 @@ import json
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from anthropic import Anthropic  # Native Anthropic SDK
+from anthropic import Anthropic
 
 load_dotenv(override=True)
 open_ai_API_KEY = os.getenv('OPENAI_API_KEY')
 anthropic_ai_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 gemini_ai_API_KEY = os.getenv('GOOGLE_API_KEY')
 groq_ai_API_KEY = os.getenv('GROQAI_API_KEY')
+
+class InvalidAIResponseError(ValueError):
+    """Raised when an AI provider returns malformed JSON or an invalid response structure."""
+    pass
 
 MODEL_CONFIG = {
     "ChatGPT": {
@@ -59,7 +63,7 @@ You MUST return a valid JSON object containing only a single key "clue" with a 1
 """
 }
 
-# Voting System Prompt
+
 voting_system_prompt = {
     "role": "system",
     "content": """You are one of 4 AI players in the voting phase of a social deduction word game called "Imposter".
@@ -86,7 +90,7 @@ Example:
 """
 }
 
-# Strict JSON Schema for OpenAI and Gemini clue generation
+
 strict_response_format = {
     "type": "json_schema",
     "json_schema": {
@@ -106,7 +110,7 @@ strict_response_format = {
     }
 }
 
-# Strict JSON Schema for OpenAI and Gemini voting
+
 strict_voting_response_format = {
     "type": "json_schema",
     "json_schema": {
@@ -130,7 +134,7 @@ strict_voting_response_format = {
     }
 }
 
-# Standard JSON object format for Groq to prevent validation crashes
+
 groq_response_format = {
     "type": "json_object"
 }
@@ -202,7 +206,7 @@ Instruction: Follow your assigned role's voting objective. Select exactly one el
         "content": content
     }
 
-# Initialize Clients
+
 groq_config = MODEL_CONFIG['Groq']
 groq_ai = OpenAI(api_key=groq_ai_API_KEY, base_url=groq_config["base_url"])
 
@@ -212,11 +216,11 @@ open_ai = OpenAI(api_key=open_ai_API_KEY)
 gemini_ai_config = MODEL_CONFIG['Gemini']
 gemini_ai = OpenAI(api_key=gemini_ai_API_KEY, base_url=gemini_ai_config["base_url"])
 
-# Native Anthropic Client for Claude
+
 claude_config = MODEL_CONFIG['Claude']
 claude_ai = Anthropic(api_key=anthropic_ai_API_KEY)
 
-# Shared helper for OpenAI-compatible providers (Clues)
+
 def generate_compatible_clue(player_context, client, model_config, custom_response_format):
     category = player_context['category']
     secret_word = player_context['secret_word']
@@ -232,7 +236,15 @@ def generate_compatible_clue(player_context, client, model_config, custom_respon
         response_format=custom_response_format
     )
 
-    results = json.loads(res.choices[0].message.content)
+    try:
+        content = res.choices[0].message.content
+        results = json.loads(content)
+    except (json.JSONDecodeError, TypeError, AttributeError) as e:
+        raise InvalidAIResponseError(f"Failed to parse JSON response from AI: {e}") from e
+
+    if not isinstance(results, dict) or not isinstance(results.get('clue'), str):
+        raise InvalidAIResponseError(f"Invalid response structure: expected a dict with a string 'clue', got {results}")
+
     return results['clue']
 
 def generate_openai_clue(player_context):
@@ -244,10 +256,10 @@ def generate_groq_clue(player_context):
 def generate_gemini_clue(player_context):
     return generate_compatible_clue(player_context, gemini_ai, gemini_ai_config, strict_response_format)
 
-# Request-layer structured output enforcement for Claude via Tool Use (Clues)
+
 def generate_claude_clue(player_context):
     if not isinstance(player_context, dict):
-        raise TypeError(f'Player context must be a dict! received: {type(player_context).__name__}')
+        raise TypeError(f'Player context must be a dict! received: {type(player_context).__name__}')[cite: 1]
 
     category = player_context['category']
     secret_word = player_context['secret_word']
@@ -284,9 +296,12 @@ def generate_claude_clue(player_context):
 
     for block in response.content:
         if block.type == "tool_use" and block.name == "submit_clue":
-            return block.input['clue']
+            tool_input = block.input
+            if not isinstance(tool_input, dict) or not isinstance(tool_input.get('clue'), str):
+                raise InvalidAIResponseError(f"Invalid Claude tool response structure: expected dict with string 'clue', got {tool_input}")
+            return tool_input['clue']
 
-    raise ValueError("Claude failed to return a valid structured tool response.")
+    raise InvalidAIResponseError("Claude failed to return a valid structured tool response.")
 
 CLUE_GENERATORS = {
     "ChatGPT": generate_openai_clue,
@@ -306,7 +321,7 @@ def generate_clue(player_context):
 
 def generate_compatible_vote(voting_context, client, model_config, custom_response_format):
     if not isinstance(voting_context, dict):
-        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')
+        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')[cite: 1]
 
     res = client.chat.completions.create(
         model=model_config['model'],
@@ -317,7 +332,14 @@ def generate_compatible_vote(voting_context, client, model_config, custom_respon
         response_format=custom_response_format
     )
 
-    results = json.loads(res.choices[0].message.content)
+    try:
+        content = res.choices[0].message.content
+        results = json.loads(content)
+    except (json.JSONDecodeError, TypeError, AttributeError) as e:
+        raise InvalidAIResponseError(f"Failed to parse JSON voting response from AI: {e}") from e
+
+    if not isinstance(results, dict) or not isinstance(results.get("vote"), str) or not isinstance(results.get("reason"), str):
+        raise InvalidAIResponseError(f"Invalid voting response structure: expected dict with string 'vote' and string 'reason', got {results}")
     
     return {
         "vote": results.get("vote"),
@@ -336,7 +358,7 @@ def generate_groq_vote(voting_context):
 
 def generate_claude_vote(voting_context):
     if not isinstance(voting_context, dict):
-        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')
+        raise TypeError(f'Voting context must be a dict! received: {type(voting_context).__name__}')[cite: 1]
 
     user_prompt = get_voting_prompt(voting_context)
 
@@ -372,12 +394,15 @@ def generate_claude_vote(voting_context):
 
     for block in response.content:
         if block.type == "tool_use" and block.name == "submit_vote":
+            tool_input = block.input
+            if not isinstance(tool_input, dict) or not isinstance(tool_input.get('vote'), str) or not isinstance(tool_input.get('reason'), str):
+                raise InvalidAIResponseError(f"Invalid Claude tool voting response structure: expected dict with string 'vote' and string 'reason', got {tool_input}")
             return {
-                "vote": block.input['vote'],
-                "reason": block.input['reason']
+                "vote": tool_input['vote'],
+                "reason": tool_input['reason']
             }
 
-    raise ValueError("Claude failed to return a valid structured tool voting response.")
+    raise InvalidAIResponseError("Claude failed to return a valid structured tool voting response.")
 
 VOTING_GENERATORS = {
     "ChatGPT": generate_openai_vote,
