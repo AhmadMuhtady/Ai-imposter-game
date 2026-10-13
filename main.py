@@ -19,6 +19,10 @@ def run_clue_phase(players, secret_word):
             except (openai.APIConnectionError, anthropic.APIConnectionError) as e:
                 print(f"Connection Error for {name} on attempt {attempt + 1}: {e}")
                 continue
+            except (openai.AuthenticationError, anthropic.AuthenticationError) as e:
+                raise RuntimeError(f"Authentication failed for {name}. Please verify your API keys.") from e
+            except (openai.RateLimitError, anthropic.RateLimitError) as e:
+                raise RuntimeError(f"Rate limit reached for {name}. Please check your quota or try again later.") from e
             
             try:
                 add_clue(clues, name, clue, secret_word)
@@ -38,12 +42,15 @@ def run_voting_phase(players, clues):
         for attempt in range(3):
             output = prepare_voting_context(player, clues)
             
-            # Added connection error handling for voting (matching clue phase)
             try:
                 vote = generate_vote(output)
             except (openai.APIConnectionError, anthropic.APIConnectionError) as e:
                 print(f"Connection Error for {name} on vote attempt {attempt + 1}: {e}")
                 continue
+            except (openai.AuthenticationError, anthropic.AuthenticationError) as e:
+                raise RuntimeError(f"Authentication failed for {name}. Please verify your API keys.") from e
+            except (openai.RateLimitError, anthropic.RateLimitError) as e:
+                raise RuntimeError(f"Rate limit reached for {name}. Please check your quota or try again later.") from e
 
             try:
                 add_vote(votes, name, vote, output['candidates'])
