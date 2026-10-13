@@ -17,6 +17,7 @@ def add_clue(clues, player_name, clue, secret_word):
     cleaned_name = player_name.strip()
     cleaned_clue = clue.strip()
     cleaned_secret_word = secret_word.strip().casefold()
+    normalized_clue = cleaned_clue.strip('.,!?;:"\'-')
     
     if not cleaned_name:
         raise ValueError(f'Player Name must be valid! recieved: {player_name}')
@@ -24,13 +25,16 @@ def add_clue(clues, player_name, clue, secret_word):
     if not cleaned_clue:
         raise ValueError(f'Clue must be valid! recieved: {clue}')
     
+    if not re.search(r'\w', cleaned_clue):
+        raise ValueError('Clue must contain meaningful letters or words.')
+    
     if len(cleaned_clue.split()) > 1:
         raise ValueError('Clue Must be 1 word only')
     
     if not cleaned_secret_word:
         raise ValueError(f'Secret word must be valid! recieved: {secret_word}')
     
-    if cleaned_secret_word == cleaned_clue.casefold():
+    if cleaned_secret_word == normalized_clue.casefold():
         raise ValueError('AI revealed the secret word!')
     
     prev_clues = [c['clue'].casefold() for c in clues]
@@ -42,7 +46,7 @@ def add_clue(clues, player_name, clue, secret_word):
     if cleaned_clue.casefold() in prev_clues:
         raise ValueError('same Clue already been given by another player!')
     
-    cleaned = {'name': cleaned_name, 'clue': cleaned_clue}
+    cleaned = {'name': cleaned_name, 'clue': normalized_clue}
     
     clues.append(cleaned)
 
@@ -137,8 +141,8 @@ def add_vote(votes, voter_name, vote_result, candidates, secret_word=None):
     if secret_word and isinstance(secret_word, str):
         cleaned_secret = secret_word.strip()
         if cleaned_secret:
-
-            pattern = rf'(?<!\w){re.escape(cleaned_secret)}(?!\w)'
+            flexible_secret = r'[\s\-]*'.join(re.escape(c) for c in cleaned_secret)
+            pattern = rf'(?<!\w){flexible_secret}(?!\w)'
             if re.search(pattern, cleaned_reason, re.IGNORECASE):
                 raise ValueError('Reason must not reveal the secret word!')
 
