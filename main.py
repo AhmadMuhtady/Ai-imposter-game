@@ -55,6 +55,9 @@ def run_voting_phase(players, clues):
                 raise RuntimeError(f"Authentication failed for {name}. Please verify your API keys.") from e
             except (openai.RateLimitError, anthropic.RateLimitError) as e:
                 raise RuntimeError(f"Rate limit reached for {name}. Please check your quota or try again later.") from e
+            except json.JSONDecodeError as e:
+                print(f"Malformed JSON Error for {name} on vote attempt {attempt + 1}: {e}")
+                continue
 
             try:
                 add_vote(votes, name, vote, output['candidates'])
