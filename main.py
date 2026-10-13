@@ -145,5 +145,30 @@ def run_game(category, secret_word):
 
 
 if __name__ == '__main__':
-    results = run_game('Animals', 'Penguin')
-    print(results)
+    game = run_game('Animals', 'Penguin')
+    result = game['results']
+
+    print('\n' + '=' * 58)
+    print('              AI IMPOSTER  |  MATCH REPORT')
+    print('=' * 58)
+    print(f" CATEGORY     : {game['category'].upper()}")
+    print(f" PLAYERS      : {len(game['players'])} AI MODELS")
+
+    print('\n [ 01 ]  ONE-WORD CLUES')
+    print('-' * 58)
+    for item in game['clues']:
+        print(f" {item['name']:<12}  {item['clue']}")
+
+    print('\n [ 02 ]  VOTING RESULTS')
+    print('-' * 58)
+    for item in game['votes']:
+        print(f" {item['name']:<12}  ->  {item['vote']}")
+
+    print('\n [ 03 ]  FINAL REVEAL')
+    print('-' * 58)
+    print(f" SECRET WORD  : {game['secret_word'].upper()}")
+    print(f" IMPOSTOR     : {game['imposter'].upper()}")
+    print(f" MOST VOTED   : {', '.join(result['suspects'])}")
+    print(f" WINNER       : {result['winner'].upper()}")
+    print(f" VERDICT      : {result['final_statement']}")
+    print('=' * 58)
