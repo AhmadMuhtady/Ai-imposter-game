@@ -134,3 +134,10 @@ def run_game(category, secret_word):
         'imposter': imposter,
         'results': results
     }
+
+
+
+
+if __name__ == '__main__':
+    results = run_game('food', 'icecream')
+    print(results)
