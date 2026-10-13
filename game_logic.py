@@ -173,20 +173,30 @@ def resolve_game(players, votes, imposter):
     final_statment = None
     is_tie = False
     winner = 'Imposter'
+
+    if len(votes) != len(players):
+        raise ValueError(f'expected {len(players)} votes but received: {len(votes)}')
+
     for v in votes:
         name = v['vote']
         voter_name = v['name']
-        if voter_name not in past_voters:
-            if name in scores:
-                scores[name] += 1
-                past_voters.append(voter_name)
-            else:
-                raise ValueError(f'Vote name is Unknown! recieved: {name}')
-        else:
+
+        if voter_name not in scores:
+            raise ValueError(f'Voter name is Unknown! received: {voter_name}')
+
+        if voter_name in past_voters:
             raise ValueError(f'{voter_name} already Voted!')
 
-    max_score = max(scores.values())
+        if name not in scores:
+            raise ValueError(f'Vote name is Unknown! received: {name}')
 
+        if voter_name.casefold() == name.casefold():
+            raise ValueError('Voter cannot vote for themselves!')
+
+        scores[name] += 1
+        past_voters.append(voter_name)
+
+    max_score = max(scores.values())
     top_players = [name for name, count in scores.items() if count == max_score]
 
     if len(top_players) > 1:
