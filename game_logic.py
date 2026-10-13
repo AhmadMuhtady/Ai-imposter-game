@@ -1,14 +1,17 @@
-def add_clue(clues,player_name,clue,secret_word):
-    if not isinstance(clues,list):
+import re
+
+
+def add_clue(clues, player_name, clue, secret_word):
+    if not isinstance(clues, list):
         raise TypeError(f'Clues Must be a List! recieved: {type(clues).__name__}')
     
-    if not isinstance(player_name,str):
+    if not isinstance(player_name, str):
         raise TypeError(f'Player Name must be a string! recieved: {type(player_name).__name__}')
     
-    if not isinstance(clue,str):
+    if not isinstance(clue, str):
         raise TypeError(f'Clue must be a string! recieved: {type(clue).__name__}')
 
-    if not isinstance(secret_word,str):
+    if not isinstance(secret_word, str):
         raise TypeError(f'Secret word must be string! recieved: {type(secret_word).__name__}')
 
     cleaned_name = player_name.strip()
@@ -31,6 +34,10 @@ def add_clue(clues,player_name,clue,secret_word):
         raise ValueError('AI revealed the secret word!')
     
     prev_clues = [c['clue'].casefold() for c in clues]
+    submitted_players = [c['name'].casefold() for c in clues]
+
+    if cleaned_name.casefold() in submitted_players:
+        raise ValueError(f'Player {cleaned_name} has already submitted a clue!')
     
     if cleaned_clue.casefold() in prev_clues:
         raise ValueError('same Clue already been given by another player!')
@@ -40,42 +47,45 @@ def add_clue(clues,player_name,clue,secret_word):
     clues.append(cleaned)
 
 
-
-def prepare_player_context(player,clues,rejected_clues):
+def prepare_player_context(player, clues, rejected_clues):
     player_name = player['name']
     player_word = player['secret_word']
     player_category = player['category']
 
-    output  = {
-    'name': player_name,
-    'secret_word': player_word,
-    'category': player_category,
-    'previous_clues': clues.copy(),
-    'retry_feedback': ''
+    output = {
+        'name': player_name,
+        'secret_word': player_word,
+        'category': player_category,
+        'previous_clues': clues.copy(),
+        'retry_feedback': ''
     }
 
     if rejected_clues:
-        output['retry_feedback'] = 'Your previous clue was rejected. Choose a different, valid one-word clue. Do not repeat your previous response.'
+        output['retry_feedback'] = (
+            'Your previous clue was rejected. Choose a different, valid one-word clue. '
+            'Do not repeat your previous response.'
+        )
 
     return output
 
-def prepare_voting_context(player,clues):
+
+def prepare_voting_context(player, clues):
     player_name = player['name']
     player_word = player['secret_word']
     player_category = player['category']
 
-    output  = {
-    'name': player_name,
-    'secret_word': player_word,
-    'category': player_category,
-    'clues': clues.copy(),
-    'candidates': [p['name'] for p in clues if p['name'] != player_name]
+    output = {
+        'name': player_name,
+        'secret_word': player_word,
+        'category': player_category,
+        'clues': clues.copy(),
+        'candidates': [p['name'] for p in clues if p['name'] != player_name]
     }
 
     return output
 
 
-def add_vote(votes, voter_name, vote_result, candidates):
+def add_vote(votes, voter_name, vote_result, candidates, secret_word=None):
     if not isinstance(votes, list):
         raise TypeError(f'Votes must be a list! Received: {type(votes).__name__}')
     
@@ -92,12 +102,11 @@ def add_vote(votes, voter_name, vote_result, candidates):
     if not cleaned_name:
         raise ValueError(f'Voter name must be valid! Received: {voter_name}')
 
-    
     for existing in votes:
         if existing.get('name', '').casefold() == cleaned_name.casefold():
             raise ValueError(f'Player {cleaned_name} has already voted!')
 
-    # Safe checking and stripping for vote and reason
+
     raw_vote = vote_result.get('vote')
     raw_reason = vote_result.get('reason')
 
@@ -114,16 +123,27 @@ def add_vote(votes, voter_name, vote_result, candidates):
     
     if not cleaned_reason:
         raise ValueError('Reason cannot be empty!')
-    
 
-    sentences = [s.strip() for s in cleaned_reason.split('.') if s.strip()]
-    if len(sentences) > 1:
-        raise ValueError('Reason must be 1 sentence only')
-    
-  
+
+    if not re.search(r'\w', cleaned_reason):
+        raise ValueError('Reason must contain meaningful text, not just punctuation.')
+
+
+    segments = [s.strip() for s in re.split(r'[.!?]+', cleaned_reason) if s.strip()]
+    if len(segments) > 1:
+        raise ValueError('Reason must be 1 sentence only.')
+
+
+    if secret_word and isinstance(secret_word, str):
+        cleaned_secret = secret_word.strip()
+        if cleaned_secret:
+
+            pattern = rf'(?<!\w){re.escape(cleaned_secret)}(?!\w)'
+            if re.search(pattern, cleaned_reason, re.IGNORECASE):
+                raise ValueError('Reason must not reveal the secret word!')
+
     if cleaned_name.casefold() == cleaned_vote.casefold():
         raise ValueError('You cannot vote for yourself!')
-    
 
     matched_candidate = None
     for candidate in candidates:
@@ -134,7 +154,6 @@ def add_vote(votes, voter_name, vote_result, candidates):
     if not matched_candidate:
         raise ValueError(f'Invalid vote target "{cleaned_vote}". Must be one of the eligible candidates: {candidates}')
 
-
     clean_vote = {
         'name': cleaned_name, 
         'vote': matched_candidate, 
@@ -144,22 +163,27 @@ def add_vote(votes, voter_name, vote_result, candidates):
     votes.append(clean_vote)
 
 
-def resolve_game(players,votes,imposter):
+def resolve_game(players, votes, imposter):
     scores = {player['name']: 0 for player in players}
+    past_voters = []
     final_statment = None
     is_tie = False
     winner = 'Imposter'
     for v in votes:
         name = v['vote']
-        if name in scores:
-            scores[name] += 1
-
+        voter_name = v['name']
+        if voter_name not in past_voters:
+            if name in scores:
+                scores[name] += 1
+                past_voters.append(voter_name)
+            else:
+                raise ValueError(f'Vote name is Unknown! recieved: {name}')
+        else:
+            raise ValueError(f'{voter_name} already Voted!')
 
     max_score = max(scores.values())
 
-
     top_players = [name for name, count in scores.items() if count == max_score]
-
 
     if len(top_players) > 1:
         final_statment = 'It is a Tie! The Imposter survives and WINS!'
@@ -172,12 +196,11 @@ def resolve_game(players,votes,imposter):
         else:
             final_statment = 'Imposter WON! Innocent players voted for an innocent person!'
             
-    
     return {
-    'scores': scores,
-    'max_score': max_score,
-    'suspects': top_players,
-    'winner': winner,
-    'is_tie': is_tie,
-    'final_statement': final_statment
-}
+        'scores': scores,
+        'max_score': max_score,
+        'suspects': top_players,
+        'winner': winner,
+        'is_tie': is_tie,
+        'final_statement': final_statment
+    }
