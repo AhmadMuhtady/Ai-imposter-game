@@ -170,6 +170,7 @@ def get_voting_prompt(voting_context):
     category = voting_context['category']
     clues = voting_context['clues']
     candidates = voting_context['candidates']
+    retry_feedback = voting_context.get('retry_feedback', '')
     
     if clues:
         clues_lines = [f"- {item['name']}: {item['clue']}" for item in clues]
@@ -186,6 +187,8 @@ def get_voting_prompt(voting_context):
     if secret_word == "Imposter":
         imposter_hint = "\n[HIDDEN NOTE: Psst... You are the Imposter! Stay smart and sneaky. Pick someone suspicious and frame them with a clever reason so they take the fall!]\n"
 
+    feedback_section = f"\nATTENTION - RETRY WARNING: {retry_feedback}\n" if retry_feedback else ""
+
     content = f"""Here is the voting state:
 - Your Name: 
 {name}
@@ -193,13 +196,16 @@ def get_voting_prompt(voting_context):
 {secret_word}
 - Category: 
 {category}
-{imposter_hint}
+{imposter_hint}{feedback_section}
 All Players' Clues:
 {clues_str}
 
 Eligible Voting Candidates: {candidates_str}
 
-Instruction: Follow your assigned role's voting objective. Select exactly one eligible candidate and provide a one-sentence explanation. Return a JSON object containing exactly two keys: "vote" and "reason"."""
+Instruction: Follow your assigned role's voting objective. Select exactly one eligible candidate and provide a one-sentence explanation. 
+CRITICAL RULE: DO NOT name, mention, or spell out your secret word ("{secret_word}") or role in your explanation. Base your suspicion strictly on the clues and category.
+
+Return a JSON object containing exactly two keys: "vote" and "reason"."""
 
     return {
         "role": "user",
