@@ -43,7 +43,7 @@ def add_clue(clues, player_name, clue, secret_word):
     if cleaned_name.casefold() in submitted_players:
         raise ValueError(f'Player {cleaned_name} has already submitted a clue!')
     
-    if cleaned_clue.casefold() in prev_clues:
+    if normalized_clue.casefold() in prev_clues:
         raise ValueError('same Clue already been given by another player!')
     
     cleaned = {'name': cleaned_name, 'clue': normalized_clue}
