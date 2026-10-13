@@ -145,7 +145,7 @@ def run_game(category, secret_word):
 
 
 if __name__ == '__main__':
-    game = run_game('Animals', 'Penguin')
+    game = run_game('movie', 'titanic')
     result = game['results']
 
     print('\n' + '=' * 58)
