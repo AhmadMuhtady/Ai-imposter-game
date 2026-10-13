@@ -1,33 +1,66 @@
 from input_and_validation import user_input
 from players import setup_players
-from game_logic import add_clue,prepare_player_context
-from ai_models import generate_clue
-
-clues = []
-
-category,secret_word = user_input('food','burger')
-players,imposter = setup_players(secret_word,category)
+from game_logic import add_clue,prepare_player_context,prepare_voting_context,add_vote,resolve_game
+from ai_models import generate_clue,generate_vote
 
 
 
-for player in players:
-    rejected_clues = []
-    name = player['name']
+
+
+def run_clue_phase(players, secret_word):
+    clues = []
+    for player in players:
+        rejected_clues = []
+        name = player['name']
+        
+        for attempt in range(3):
+            output = prepare_player_context(player,clues,rejected_clues)
+            clue = generate_clue(output)
+            try:
+
+                add_clue(clues,name,clue,secret_word)
+                break
+            except ValueError as e:
+                rejected_clues.append({'rejected_clue': clue,'Error': str(e)})
+                print(f"Error: {e}")
+        else:
+            raise RuntimeError(f'{name} failed to generate a valid clue after 3 attempts')
+
+    return clues
     
-    for attempt in range(3):
-        output = prepare_player_context(player,clues,rejected_clues)
-        clue = generate_clue(output)
-        try:
+def run_voting_phase(players, clues):
+    votes = []
+    for player in players:
+        name = player['name']
+        for attempt in range(3):
+            output = prepare_voting_context(player,clues)
+            vote = generate_vote(output)
+            try:
+                add_vote(votes,name,vote,output['candidates'])
+                break
+            except ValueError as e:
+                print(f"Error: {e}")
 
-            add_clue(clues,name,clue,secret_word)
-            break
-        except ValueError as e:
-            rejected_clues.append({'rejected_clue': clue,'Error': str(e)})
-            print(f"Error: {e}")
-        print(rejected_clues)
-    else:
-        raise RuntimeError(f'{name} failed to generate a valid clue after 3 attempts')
+        else:
+            raise RuntimeError(f'{name} failed to generate a valid vote after 3 attempts')
     
+    return votes
 
 
-print(clues)
+
+def run_game(category, secret_word):
+    category,secret_word = user_input(category,secret_word)
+    players,imposter = setup_players(secret_word,category)
+    clues = run_clue_phase(players, secret_word)
+    votes = run_voting_phase(players, clues)
+    results = resolve_game(players,votes,imposter)
+
+    return {
+    'category': category,
+    'secret_word': secret_word,
+    'players': players,
+    'clues': clues,
+    'votes': votes,
+    'imposter': imposter,
+    'results': results
+    }
